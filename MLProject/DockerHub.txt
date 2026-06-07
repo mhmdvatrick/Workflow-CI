@@ -1,0 +1,14 @@
+Tautan Docker Hub Image:
+https://hub.docker.com/r/mhmdvatrick/telco-churn-ml
+
+Image name untuk CI:
+mhmdvatrick/telco-churn-ml:latest
+
+Pull image:
+docker pull mhmdvatrick/telco-churn-ml:latest
+
+Run container:
+docker run -p 5000:8080 mhmdvatrick/telco-churn-ml:latest
+
+Catatan: Image dibuat otomatis oleh GitHub Actions menggunakan:
+mlflow models build-docker -m <model_uri> -n mhmdvatrick/telco-churn-ml
