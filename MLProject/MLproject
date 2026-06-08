@@ -1,11 +1,8 @@
-name: telco-churn-ci
+name: TelcoChurnProject
 
 conda_env: conda.yaml
 
 entry_points:
+
   main:
-    parameters:
-      data_path:
-        type: string
-        default: "WA_Fn-UseC_-Telco-Customer-Churn_preprocessing"
-    command: "python modelling.py --data_path {data_path}"
+    command: "python modelling.py"
