@@ -1,0 +1,144 @@
+name: MLflow CI Pipeline
+
+on:
+  push:
+    branches:
+      - main
+
+  pull_request:
+    branches:
+      - main
+
+  workflow_dispatch:
+
+env:
+  IMAGE_NAME: mhmdvatrick/telco-churn-model
+
+jobs:
+  train-build-push:
+
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+
+    - name: Install Dependencies
+      working-directory: MLProject
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    ##########################################################
+    # TRAIN MODEL (WAJIB MENGGUNAKAN MLFLOW RUN)
+    ##########################################################
+
+    - name: Run MLflow Project
+      working-directory: MLProject
+      env:
+        MLFLOW_TRACKING_URI: file:./mlruns
+      run: |
+        mlflow run . --env-manager local
+
+    ##########################################################
+    # CEK ARTIFACT
+    ##########################################################
+
+    - name: Show MLflow Artifacts
+      working-directory: MLProject
+      run: |
+        echo "========== ARTIFACT =========="
+        find mlruns -type f
+
+    ##########################################################
+    # UPLOAD ARTIFACT
+    ##########################################################
+
+    - name: Upload MLflow Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: mlflow-artifact
+        path: |
+          MLProject/mlruns
+
+    ##########################################################
+    # INSTALL DOCKER
+    ##########################################################
+
+    - name: Setup Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    ##########################################################
+    # LOGIN DOCKER HUB
+    ##########################################################
+
+    - name: Login DockerHub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+    ##########################################################
+    # CARI MODEL
+    ##########################################################
+
+    - name: Find MLflow Model
+      id: model
+      working-directory: MLProject
+      run: |
+
+        MODEL_PATH=$(find mlruns -name MLmodel | head -1)
+
+        MODEL_DIR=$(dirname "$MODEL_PATH")
+
+        echo "model=$MODEL_DIR"
+
+        echo "model=$MODEL_DIR" >> $GITHUB_OUTPUT
+
+    ##########################################################
+    # BUILD DOCKER IMAGE
+    ##########################################################
+
+    - name: Build Docker Image
+      working-directory: MLProject
+      run: |
+
+        mlflow models build-docker \
+        -m "${{ steps.model.outputs.model }}" \
+        -n "${{ env.IMAGE_NAME }}"
+
+    ##########################################################
+    # PUSH DOCKER
+    ##########################################################
+
+    - name: Push Docker Image
+      run: |
+
+        docker push ${{ env.IMAGE_NAME }}:latest
+
+    ##########################################################
+    # SUMMARY
+    ##########################################################
+
+    - name: Workflow Summary
+      run: |
+
+        echo "## Workflow Success" >> $GITHUB_STEP_SUMMARY
+
+        echo "- Training menggunakan mlflow run" >> $GITHUB_STEP_SUMMARY
+
+        echo "- Artifact berhasil dibuat" >> $GITHUB_STEP_SUMMARY
+
+        echo "- Docker berhasil dibuild" >> $GITHUB_STEP_SUMMARY
+
+        echo "- Docker berhasil dipush ke DockerHub" >> $GITHUB_STEP_SUMMARY
